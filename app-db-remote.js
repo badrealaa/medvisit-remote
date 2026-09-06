@@ -166,6 +166,15 @@
     if (error) throwIfError(error);
     return data;
   }
+
+  // Création directe d'un représentant par le Cabinet (accueil physique) :
+  // pour ceux qui préfèrent obtenir leur code sur place plutôt que de
+  // passer par "Demander un accès" sur index.html. Renvoie le code généré.
+  async function createRepresentativeOnSite({ nom, prenom, laboratoire, telephone }) {
+    const { data, error } = await safe(client.rpc("admin_create_representative", { p_nom: nom, p_prenom: prenom, p_laboratoire: laboratoire, p_telephone: telephone }));
+    if (error) throwIfError(error);
+    return data;
+  }
   async function rejectCodeRequest(requestId) {
     const { error } = await safe(client.from("code_requests").update({ status: "rejected" }).eq("id", requestId));
     if (error) throwIfError(error);
@@ -246,7 +255,7 @@
     adminLogin, adminLogout, adminSession, adminChangePassword,
     listAllAppointmentsAdmin, appointmentsForDay, cancelAppointmentById,
     listCodeRequests, approveCodeRequest, rejectCodeRequest,
-    listRepresentatives, setRepBanned,
+    listRepresentatives, setRepBanned, createRepresentativeOnSite,
     getMobileHolidays, setMobileHolidays, getMaxPerDay, setMaxPerDay,
     getDayInfo, setDayClosed, setDayMaxPerDay, clearDayMaxPerDay,
   };

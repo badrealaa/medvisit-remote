@@ -152,6 +152,18 @@
 
     <div class="section" id="tab-reps">
       <div class="card">
+        <h2>Ajouter un représentant sur place</h2>
+        <p class="hint">Pour un représentant qui préfère obtenir son code directement au cabinet plutôt que de passer par le site (index.html → "Demander un accès"). Le code est généré immédiatement.</p>
+        <div class="filters">
+          <input type="text" id="newRepNom" placeholder="Nom">
+          <input type="text" id="newRepPrenom" placeholder="Prénom">
+          <input type="text" id="newRepLabo" placeholder="Laboratoire">
+          <input type="text" id="newRepTel" placeholder="Téléphone">
+        </div>
+        <button class="btn-primary btn-sm" style="width:auto;" onclick="createRepOnSite()">Générer le code</button>
+        <div class="hint" id="newRepResult" style="margin-top:10px;"></div>
+      </div>
+      <div class="card">
         <h2>Répertoire des représentants</h2>
         <div class="table-wrap"><table><thead><tr><th>Code</th><th>Nom</th><th>Laboratoire</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead><tbody id="tableReps"></tbody></table><div class="empty" id="emptyReps" style="display:none;">Aucun représentant enregistré.</div></div>
       </div>
@@ -385,6 +397,29 @@
   async function toggleBan(id, banned){
     if (banned && !confirm('Bannir ce représentant ? Il ne pourra plus prendre de rendez-vous.')) return;
     await DB.setRepBanned(id, banned); renderReps();
+  }
+
+  async function createRepOnSite(){
+    const nom = document.getElementById('newRepNom').value.trim();
+    const prenom = document.getElementById('newRepPrenom').value.trim();
+    const laboratoire = document.getElementById('newRepLabo').value.trim();
+    const telephone = document.getElementById('newRepTel').value.trim();
+    const resultEl = document.getElementById('newRepResult');
+    if (!nom || !prenom || !laboratoire || !telephone){ alert('Veuillez remplir tous les champs.'); return; }
+    try {
+      const code = await DB.createRepresentativeOnSite({ nom, prenom, laboratoire, telephone });
+      resultEl.innerHTML = `✅ Code généré : <strong>${code}</strong>`;
+      document.getElementById('newRepNom').value = '';
+      document.getElementById('newRepPrenom').value = '';
+      document.getElementById('newRepLabo').value = '';
+      document.getElementById('newRepTel').value = '';
+      renderReps();
+      if (confirm(`Code généré : ${code}\n\nL'envoyer aussi par WhatsApp à ${prenom} ${nom} ?`)){
+        sendCodeWhatsApp(prenom, nom, code, telephone);
+      }
+    } catch (err) {
+      resultEl.textContent = 'Erreur : ' + err.message;
+    }
   }
 
   document.getElementById('btnChangePwd').addEventListener('click', async () => {

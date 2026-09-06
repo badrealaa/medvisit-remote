@@ -267,21 +267,18 @@ $$;
 
 -- ---------- Fonction Cabinet (réservée aux utilisateurs authentifiés) ----------
 
-create or replace function admin_approve_request(p_request_id uuid)
-returns text
-language plpgsql security definer set search_path = public as $$
+-- Génère un code unique à partir du nom du laboratoire (préfixe) + un
+-- nombre aléatoire — logique partagée par admin_approve_request (demande
+-- en ligne validée) et admin_create_representative (création directe au
+-- comptoir du cabinet).
+create or replace function generate_rep_code(p_laboratoire text)
+returns text language plpgsql security definer set search_path = public as $$
 declare
-  v_req code_requests%rowtype;
   v_prefix text;
   v_code text;
   v_exists boolean;
 begin
-  select * into v_req from code_requests where id = p_request_id;
-  if not found then
-    raise exception 'DEMANDE_INTROUVABLE';
-  end if;
-
-  v_prefix := upper(regexp_replace(coalesce(v_req.laboratoire, 'REP'), '[^A-Za-zÀ-ÿ]', '', 'g'));
+  v_prefix := upper(regexp_replace(coalesce(p_laboratoire, 'REP'), '[^A-Za-zÀ-ÿ]', '', 'g'));
   v_prefix := regexp_replace(v_prefix, '[^A-Z]', '', 'g');
   if v_prefix = '' then v_prefix := 'REP'; end if;
   v_prefix := left(v_prefix, 8);
@@ -291,12 +288,45 @@ begin
     select exists(select 1 from representatives where code = v_code) into v_exists;
     exit when not v_exists;
   end loop;
+  return v_code;
+end;
+$$;
+
+create or replace function admin_approve_request(p_request_id uuid)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_req code_requests%rowtype;
+  v_code text;
+begin
+  select * into v_req from code_requests where id = p_request_id;
+  if not found then
+    raise exception 'DEMANDE_INTROUVABLE';
+  end if;
+
+  v_code := generate_rep_code(v_req.laboratoire);
 
   insert into representatives (code, nom, prenom, laboratoire, telephone, banned)
     values (v_code, v_req.nom, v_req.prenom, v_req.laboratoire, v_req.telephone, false);
 
   update code_requests set status = 'approved', generated_code = v_code where id = p_request_id;
 
+  return v_code;
+end;
+$$;
+
+-- Création directe d'un représentant par le Cabinet (accueil physique) :
+-- pour les représentants qui préfèrent obtenir leur code sur place plutôt
+-- que de passer par la demande en ligne (index.html → "Demander un accès").
+create or replace function admin_create_representative(p_nom text, p_prenom text, p_laboratoire text, p_telephone text)
+returns text
+language plpgsql security definer set search_path = public as $$
+declare
+  v_code text;
+begin
+  v_code := generate_rep_code(p_laboratoire);
+  insert into representatives (code, nom, prenom, laboratoire, telephone, banned)
+    values (v_code, trim(p_nom), trim(p_prenom), trim(p_laboratoire), trim(p_telephone), false);
   return v_code;
 end;
 $$;
@@ -335,6 +365,7 @@ grant execute on function rep_book_appointment(text) to anon, authenticated;
 grant execute on function rep_cancel_appointment(text) to anon, authenticated;
 grant execute on function rep_get_max_per_day(date) to anon, authenticated;
 grant execute on function admin_approve_request(uuid) to authenticated;
+grant execute on function admin_create_representative(text, text, text, text) to authenticated;
 
 grant select, insert, update, delete on representatives, code_requests, appointments, settings, day_overrides to authenticated;
 
