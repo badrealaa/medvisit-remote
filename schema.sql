@@ -354,10 +354,14 @@ create policy "cabinet full access day_overrides" on day_overrides
   for all to authenticated using (true) with check (true);
 
 revoke all on all tables in schema public from anon;
--- Postgres accorde EXECUTE à PUBLIC par défaut sur toute nouvelle fonction :
--- il faut révoquer PUBLIC explicitement, sinon "anon" en hérite quand même
--- et pourrait appeler admin_approve_request sans être authentifié.
-revoke all on all functions in schema public from public;
+-- Postgres accorde EXECUTE à PUBLIC par défaut sur toute nouvelle fonction,
+-- et Supabase accorde en plus EXECUTE directement au rôle "anon" par
+-- défaut sur les objets du schéma public (indépendamment de PUBLIC) : il
+-- faut donc révoquer explicitement des DEUX (public ET anon), sinon "anon"
+-- garde un accès direct même après un "revoke ... from public" — vérifié
+-- en pratique sur admin_approve_request, qui restait appelable sans
+-- authentification malgré la ligne "from public" ci-dessous à elle seule.
+revoke all on all functions in schema public from public, anon;
 
 grant execute on function rep_find_by_code(text) to anon, authenticated;
 grant execute on function rep_create_code_request(text, text, text, text) to anon, authenticated;
@@ -366,6 +370,10 @@ grant execute on function rep_cancel_appointment(text) to anon, authenticated;
 grant execute on function rep_get_max_per_day(date) to anon, authenticated;
 grant execute on function admin_approve_request(uuid) to authenticated;
 grant execute on function admin_create_representative(text, text, text, text) to authenticated;
+-- generate_rep_code() n'est volontairement accordée à personne directement :
+-- elle n'est utilisée qu'en interne par les deux fonctions ci-dessus
+-- (SECURITY DEFINER, donc exécutée avec les droits du propriétaire même
+-- pour cet appel interne).
 
 grant select, insert, update, delete on representatives, code_requests, appointments, settings, day_overrides to authenticated;
 
