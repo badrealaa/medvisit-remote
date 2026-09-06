@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#312e81">
+<meta name="robots" content="noindex">
+<title>MedVisit — Espace Cabinet</title>
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --indigo-900:#312e81; --indigo-700:#4c1d95; --violet-500:#7c3aed; --violet-400:#8b5cf6;
+    --amber-500:#f59e0b; --amber-100:#fef3c7; --amber-700:#92400e;
+    --mint-500:#10b981; --mint-100:#d1fae5; --mint-700:#065f46;
+    --red-500:#ef4444; --red-100:#fee2e2; --red-700:#991b1b;
+    --ink-900:#1e1b2e; --ink-600:#57536b; --ink-400:#8b86a3;
+    --card:#ffffff; --bg:#f5f3ff; --line:#e6e1fa;
+    --radius-lg:18px; --radius-md:12px; --radius-sm:9px;
+    --shadow: 0 10px 28px rgba(76,29,149,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,sans-serif; background:var(--bg); color:var(--ink-900);}
+  #loginScreen{min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px;}
+  .login-card{background:#fff; border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:30px 26px; width:100%; max-width:360px; text-align:center;}
+  .login-card .logo{width:56px; height:56px; border-radius:14px; margin:0 auto 14px; box-shadow:var(--shadow);}
+  .login-card h1{font-size:18px; margin:0 0 4px; color:var(--indigo-900);}
+  .login-card p{font-size:12.5px; color:var(--ink-600); margin:0 0 20px;}
+  input[type=password], input[type=text], input[type=email]{width:100%; padding:13px 14px; border:1.6px solid var(--line); border-radius:var(--radius-sm); font-size:15px; outline:none; margin-bottom:12px; background:#fbfaff;}
+  input:focus{border-color:var(--violet-500); box-shadow:0 0 0 4px rgba(124,58,237,.13);}
+  button{border:none; border-radius:var(--radius-sm); font-weight:700; cursor:pointer; font-size:14px;}
+  .btn-primary{width:100%; padding:13px; background:linear-gradient(135deg, var(--indigo-700), var(--violet-500)); color:#fff;}
+  .err-msg{color:var(--red-700); font-size:12.5px; margin-top:8px; display:none;}
+  #dashboard{display:none;}
+  .topbar{background:linear-gradient(135deg, var(--indigo-900), var(--violet-500)); color:#fff; padding:18px 22px;}
+  .topbar-inner{max-width:1000px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
+  .topbar h1{font-size:17px; margin:0; display:flex; align-items:center; gap:10px;}
+  .topbar h1 img{width:32px; height:32px; border-radius:9px;}
+  .topbar .sub{font-size:11.5px; opacity:.8; margin-top:2px;}
+  .btn-logout{background:rgba(255,255,255,.18); color:#fff; padding:9px 14px; font-size:12.5px;}
+  .tabs{max-width:1000px; margin:18px auto 0; display:flex; gap:8px; padding:0 22px; flex-wrap:wrap;}
+  .tab{padding:10px 16px; border-radius:20px; background:#fff; color:var(--ink-600); font-size:13px; font-weight:700; border:1.5px solid var(--line); cursor:pointer;}
+  .tab.active{background:var(--violet-500); color:#fff; border-color:var(--violet-500);}
+  .badge-count{background:var(--amber-500); color:#fff; border-radius:20px; font-size:10.5px; padding:1px 7px; margin-left:6px;}
+  main{max-width:1000px; margin:16px auto 60px; padding:0 22px;}
+  .section{display:none;} .section.active{display:block;}
+  .card{background:#fff; border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;}
+  .card h2{font-size:15.5px; margin:0 0 14px; color:var(--indigo-900);}
+  .filters{display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  select{padding:9px 12px; border-radius:var(--radius-sm); border:1.5px solid var(--line); font-size:13px; background:#fbfaff;}
+  table{width:100%; border-collapse:collapse; font-size:12.8px;}
+  th,td{padding:10px 10px; text-align:left; border-bottom:1px solid #f1eefd;}
+  th{color:var(--ink-600); font-size:11.5px; text-transform:uppercase; letter-spacing:.03em;}
+  tr:hover td{background:#faf9ff;}
+  .table-wrap{overflow-x:auto;}
+  .empty{color:var(--ink-400); font-size:13px; text-align:center; padding:26px 0;}
+  .pill{display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700;}
+  .pill-confirmed{background:var(--mint-100); color:var(--mint-700);}
+  .pill-cancelled{background:var(--red-100); color:var(--red-700);}
+  .pill-banned{background:var(--red-100); color:var(--red-700);}
+  .pill-active{background:var(--mint-100); color:var(--mint-700);}
+  .btn-sm{padding:7px 12px; font-size:12px; border-radius:8px;}
+  .btn-approve{background:var(--mint-500); color:#fff;}
+  .btn-reject{background:var(--red-100); color:var(--red-700);}
+  .btn-ban{background:var(--red-500); color:#fff;}
+  .btn-unban{background:var(--mint-500); color:#fff;}
+  .btn-cancel-row{background:var(--red-100); color:var(--red-700);}
+  .row-actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .stat-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:16px;}
+  .stat{background:#fff; border-radius:var(--radius-md); box-shadow:var(--shadow); padding:16px;}
+  .stat .num{font-size:24px; font-weight:800; color:var(--indigo-900);}
+  .stat .lbl{font-size:11.5px; color:var(--ink-600); margin-top:2px;}
+  textarea{width:100%; min-height:90px; padding:12px; border:1.6px solid var(--line); border-radius:var(--radius-sm); font-size:13px; font-family:monospace; resize:vertical;}
+  .hint{font-size:11.5px; color:var(--ink-400); margin-top:6px; line-height:1.5;}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="login-card">
+    <img class="logo" src="icons/icon-192.png" alt="MedVisit">
+    <h1>Espace Cabinet</h1>
+    <p>Accès réservé au médecin / secrétariat — compte créé dans Supabase (voir SETUP-SUPABASE.md)</p>
+    <input type="email" id="adminEmail" placeholder="Email" autocomplete="username">
+    <input type="password" id="adminPwd" placeholder="Mot de passe" autocomplete="current-password">
+    <button class="btn-primary" id="btnLogin">Se connecter</button>
+    <div class="err-msg" id="loginErr">Email ou mot de passe incorrect.</div>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div><h1><img src="icons/icon-192.png" alt=""> MedVisit — Cabinet</h1><div class="sub">Suivi des visites représentants (mode à distance)</div></div>
+      <button class="btn-logout" id="btnLogout">Se déconnecter</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="planning" onclick="switchTab('planning')">📅 Planning</div>
+    <div class="tab" data-tab="demandes" onclick="switchTab('demandes')">🔑 Demandes de code <span class="badge-count" id="pendingCount">0</span></div>
+    <div class="tab" data-tab="reps" onclick="switchTab('reps')">👥 Représentants</div>
+    <div class="tab" data-tab="reglages" onclick="switchTab('reglages')">⚙️ Réglages</div>
+  </div>
+
+  <main>
+    <div class="section active" id="tab-planning">
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="card">
+        <h2>Rendez-vous</h2>
+        <div class="filters">
+          <select id="filtrePeriode" onchange="renderPlanning()">
+            <option value="jour">Aujourd'hui</option>
+            <option value="quinzaine">Cette quinzaine (15 jours)</option>
+            <option value="mois">Ce mois-ci</option>
+            <option value="tous">Tous</option>
+          </select>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>Date</th><th>Créneau</th><th>Représentant</th><th>Laboratoire</th><th>N° suivi</th><th>Statut</th><th></th></tr></thead><tbody id="tablePlanning"></tbody></table>
+          <div class="empty" id="emptyPlanning" style="display:none;">Aucun rendez-vous sur cette période.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="tab-demandes">
+      <div class="card">
+        <h2>Demandes de code en attente</h2>
+        <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Laboratoire</th><th>Téléphone</th><th></th></tr></thead><tbody id="tableDemandes"></tbody></table><div class="empty" id="emptyDemandes" style="display:none;">Aucune demande en attente.</div></div>
+      </div>
+      <div class="card">
+        <h2>Historique des demandes traitées</h2>
+        <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Laboratoire</th><th>Statut</th><th>Code généré</th></tr></thead><tbody id="tableDemandesHist"></tbody></table><div class="empty" id="emptyHist" style="display:none;">Aucun historique.</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="tab-reps">
+      <div class="card">
+        <h2>Répertoire des représentants</h2>
+        <div class="table-wrap"><table><thead><tr><th>Code</th><th>Nom</th><th>Laboratoire</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead><tbody id="tableReps"></tbody></table><div class="empty" id="emptyReps" style="display:none;">Aucun représentant enregistré.</div></div>
+      </div>
+    </div>
+
+    <div class="section" id="tab-reglages">
+      <div class="card">
+        <h2>Nombre de représentants par jour</h2>
+        <p class="hint">Quota maximum de rendez-vous confirmés par jour ouvrable (entre 1 et 9, un créneau de 30 min par représentant de 10h00 à 14h30).</p>
+        <div class="filters" style="flex-direction:column; align-items:stretch;"><input type="number" id="maxPerDayInput" min="1" max="9" step="1"></div>
+        <button class="btn-primary btn-sm" style="width:auto;" id="btnSaveMaxPerDay">Enregistrer</button>
+      </div>
+      <div class="card">
+        <h2>Mot de passe de votre compte Cabinet</h2>
+        <p class="hint">Ce mot de passe est celui de votre compte Supabase (authentification réelle, propre à vous).</p>
+        <div class="filters" style="flex-direction:column; align-items:stretch;"><input type="password" id="newPwd" placeholder="Nouveau mot de passe (min. 6 caractères)"></div>
+        <button class="btn-primary btn-sm" style="width:auto;" id="btnChangePwd">Mettre à jour</button>
+      </div>
+      <div class="card">
+        <h2>Jours fériés mobiles (calendrier hégirien)</h2>
+        <p class="hint">Ces dates (Aid al-Fitr, Aid al-Adha, etc.) changent chaque année. Une liste au format AAAA-MM-JJ, une par ligne — à mettre à jour annuellement selon l'annonce officielle.</p>
+        <textarea id="holidaysArea"></textarea><br><br>
+        <button class="btn-primary btn-sm" style="width:auto;" id="btnSaveHolidays">Enregistrer</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="app-db-remote.js"></script>
+<script>
+  const DB = window.CabinetDB;
+
+  async function tryLogin(){
+    const email = document.getElementById('adminEmail').value.trim();
+    const pwd = document.getElementById('adminPwd').value;
+    try {
+      await DB.adminLogin(email, pwd);
+      document.getElementById('loginScreen').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      document.getElementById('loginErr').style.display='none';
+      refreshAll();
+    } catch(err){
+      document.getElementById('loginErr').textContent = err.message;
+      document.getElementById('loginErr').style.display='block';
+    }
+  }
+  document.getElementById('btnLogin').addEventListener('click', tryLogin);
+  document.getElementById('adminPwd').addEventListener('keydown', e => { if (e.key==='Enter') tryLogin(); });
+
+  document.getElementById('btnLogout').addEventListener('click', async () => {
+    await DB.adminLogout();
+    document.getElementById('dashboard').style.display='none';
+    document.getElementById('loginScreen').style.display='flex';
+    document.getElementById('adminPwd').value='';
+  });
+
+  // Reprend la session si déjà connecté (évite de se reconnecter à chaque rechargement).
+  (async () => {
+    const session = await DB.adminSession();
+    if (session){ document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboard').style.display='block'; refreshAll(); }
+  })();
+
+  function switchTab(name){
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+  }
+
+  async function refreshAll(){ await Promise.all([renderPlanning(), renderDemandes(), renderReps(), loadReglages()]); }
+
+  function periodBounds(mode){
+    const today = new Date(); today.setHours(0,0,0,0);
+    const start = DB.toDateKey(today); let end;
+    if (mode === 'jour') end = start;
+    else if (mode === 'quinzaine'){ const d = new Date(today); d.setDate(d.getDate()+15); end = DB.toDateKey(d); }
+    else if (mode === 'mois'){ const d = new Date(today); d.setMonth(d.getMonth()+1); end = DB.toDateKey(d); }
+    else end = null;
+    return { start, end };
+  }
+
+  async function renderPlanning(){
+    const mode = document.getElementById('filtrePeriode').value;
+    const all = await DB.listAllAppointmentsAdmin();
+    const { start, end } = periodBounds(mode);
+    const filtered = all.filter(a => end ? (a.date >= start && a.date <= end) : true);
+
+    const tbody = document.getElementById('tablePlanning'); tbody.innerHTML = '';
+    filtered.forEach(a => {
+      const tr = document.createElement('tr'); const endMin = a.slotMinutes + DB.SLOT_MINUTES;
+      tr.innerHTML = `<td>${DB.fromDateKey(a.date).toLocaleDateString('fr-FR')}</td><td>${DB.minutesToLabel(a.slotMinutes)} - ${DB.minutesToLabel(endMin)}</td><td>${a.prenom} ${a.nom}</td><td>${a.laboratoire}</td><td>${a.tracking}</td><td><span class="pill ${a.status==='confirmed'?'pill-confirmed':'pill-cancelled'}">${a.status==='confirmed'?'Confirmé':'Annulé'}</span></td><td>${a.status==='confirmed' ? `<button class="btn-sm btn-cancel-row" onclick="cancelRow('${a.id}')">Annuler</button>` : ''}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('emptyPlanning').style.display = filtered.length ? 'none' : 'block';
+
+    const confirmedAll = all.filter(a => a.status === 'confirmed');
+    const todayKey = DB.toDateKey(new Date());
+    const todayCount = confirmedAll.filter(a => a.date === todayKey).length;
+    const maxPerDay = await DB.getMaxPerDay();
+    document.getElementById('statGrid').innerHTML = `
+      <div class="stat"><div class="num">${todayCount}/${maxPerDay}</div><div class="lbl">Visites aujourd'hui</div></div>
+      <div class="stat"><div class="num">${confirmedAll.length}</div><div class="lbl">Rendez-vous confirmés (total)</div></div>
+      <div class="stat"><div class="num">${all.filter(a=>a.status==='cancelled').length}</div><div class="lbl">Annulés</div></div>`;
+  }
+
+  async function cancelRow(id){
+    if (!confirm('Confirmer l\'annulation de ce rendez-vous ?')) return;
+    await DB.cancelAppointmentById(id, 'Annulé par le cabinet (priorité médicale ou indisponibilité)');
+    renderPlanning();
+  }
+
+  async function renderDemandes(){
+    const pending = await DB.listCodeRequests('pending');
+    const all = await DB.listCodeRequests(null);
+    const history = all.filter(r => r.status !== 'pending');
+    document.getElementById('pendingCount').textContent = pending.length;
+
+    const tbody = document.getElementById('tableDemandes'); tbody.innerHTML = '';
+    pending.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td class="row-actions"><button class="btn-sm btn-approve" onclick='approveReq("${r.id}", ${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.telephone)})'>Générer le code</button><button class="btn-sm btn-reject" onclick="rejectReq('${r.id}')">Rejeter</button></td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('emptyDemandes').style.display = pending.length ? 'none' : 'block';
+
+    const histBody = document.getElementById('tableDemandesHist'); histBody.innerHTML = '';
+    history.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.status === 'approved' ? '<span class="pill pill-confirmed">Approuvé</span>' : '<span class="pill pill-cancelled">Rejeté</span>'}</td><td>${r.generatedCode || '—'}</td>`;
+      histBody.appendChild(tr);
+    });
+    document.getElementById('emptyHist').style.display = history.length ? 'none' : 'block';
+  }
+
+  async function approveReq(id, prenom, nom, telephone){
+    const code = await DB.approveCodeRequest(id);
+    renderDemandes(); renderReps();
+    if (confirm(`✅ Code généré : ${code}\n\nL'envoyer tout de suite par WhatsApp à ${prenom} ${nom} ?`)){
+      sendCodeWhatsApp(prenom, nom, code, telephone);
+    }
+  }
+  async function rejectReq(id){ if (!confirm('Rejeter cette demande ?')) return; await DB.rejectCodeRequest(id); renderDemandes(); }
+
+  function toWhatsAppNumber(phone){
+    let digits = (phone || '').replace(/\D/g, '');
+    if (digits.startsWith('0')) digits = '212' + digits.slice(1);
+    else if (!digits.startsWith('212')) digits = '212' + digits;
+    return digits;
+  }
+  function sendCodeWhatsApp(prenom, nom, code, telephone){
+    const num = toWhatsAppNumber(telephone);
+    const msg = `Bonjour ${prenom} ${nom}, voici votre code personnel MedVisit pour réserver vos visites au cabinet : ${code}. Merci.`;
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+
+  async function renderReps(){
+    const reps = await DB.listRepresentatives();
+    const tbody = document.getElementById('tableReps'); tbody.innerHTML = '';
+    reps.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><strong>${r.code}</strong></td><td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td><span class="pill ${r.banned ? 'pill-banned' : 'pill-active'}">${r.banned ? 'Banni' : 'Actif'}</span></td><td class="row-actions"><button class="btn-sm btn-approve" onclick='sendCodeWhatsApp(${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.code)}, ${JSON.stringify(r.telephone)})'>Envoyer le code</button>${r.banned ? `<button class="btn-sm btn-unban" onclick="toggleBan('${r.id}', false)">Réactiver</button>` : `<button class="btn-sm btn-ban" onclick="toggleBan('${r.id}', true)">Bannir</button>`}</td>`;
+      tbody.appendChild(tr);
+    });
+    document.getElementById('emptyReps').style.display = reps.length ? 'none' : 'block';
+  }
+  async function toggleBan(id, banned){
+    if (banned && !confirm('Bannir ce représentant ? Il ne pourra plus prendre de rendez-vous.')) return;
+    await DB.setRepBanned(id, banned); renderReps();
+  }
+
+  document.getElementById('btnChangePwd').addEventListener('click', async () => {
+    const val = document.getElementById('newPwd').value.trim();
+    if (!val || val.length < 6){ alert('Le mot de passe doit contenir au moins 6 caractères.'); return; }
+    try { await DB.adminChangePassword(val); document.getElementById('newPwd').value=''; alert('✅ Mot de passe mis à jour.'); }
+    catch(err){ alert('Erreur : ' + err.message); }
+  });
+
+  async function loadReglages(){
+    const list = await DB.getMobileHolidays(); document.getElementById('holidaysArea').value = list.join('\n');
+    document.getElementById('maxPerDayInput').value = await DB.getMaxPerDay();
+  }
+  document.getElementById('btnSaveMaxPerDay').addEventListener('click', async () => {
+    const val = Number(document.getElementById('maxPerDayInput').value);
+    if (!Number.isInteger(val) || val < 1 || val > 9){ alert('Veuillez saisir un nombre entier entre 1 et 9.'); return; }
+    const saved = await DB.setMaxPerDay(val);
+    document.getElementById('maxPerDayInput').value = saved;
+    alert(`✅ Quota mis à jour : ${saved} représentants maximum par jour.`);
+    renderPlanning();
+  });
+  document.getElementById('btnSaveHolidays').addEventListener('click', async () => {
+    const lines = document.getElementById('holidaysArea').value.split('\n').map(s => s.trim()).filter(Boolean);
+    if (!lines.every(l => /^\d{4}-\d{2}-\d{2}$/.test(l))){ alert('Format invalide. Utilisez AAAA-MM-JJ, une date par ligne.'); return; }
+    await DB.setMobileHolidays(lines); alert('✅ Liste des jours fériés mise à jour.');
+  });
+</script>
+</body>
+</html>

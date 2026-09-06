@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.cabinetmedical.medvisit",
+        "sha256_cert_fingerprints": ["C8:B7:08:49:F2:A3:5D:17:66:32:79:66:07:FE:B9:BD:8E:39:5E:03:C5:8A:CF:EA:A7:52:FB:EB:F5:75:79:A6"]
+      }
+    }]

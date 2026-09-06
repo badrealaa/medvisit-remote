@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4c1d95">
+<meta name="description" content="Prise de rendez-vous des représentants pharmaceutiques — Cabinet Médical (mode à distance)">
+<title>MedVisit — Espace Représentants</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root{
+    --indigo-900:#312e81; --indigo-700:#4c1d95; --violet-500:#7c3aed; --violet-400:#8b5cf6;
+    --amber-500:#f59e0b; --amber-100:#fef3c7; --amber-700:#92400e;
+    --mint-500:#10b981; --mint-100:#d1fae5; --mint-700:#065f46;
+    --red-500:#ef4444; --red-100:#fee2e2; --red-700:#991b1b;
+    --ink-900:#1e1b2e; --ink-600:#57536b; --ink-400:#8b86a3;
+    --card:#ffffff; --bg:#f5f3ff; --line:#e6e1fa;
+    --radius-lg:20px; --radius-md:14px; --radius-sm:10px;
+    --shadow: 0 12px 32px rgba(76,29,149,0.16);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{font-family:'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background:var(--bg); color:var(--ink-900); min-height:100vh; display:flex; justify-content:center; align-items:flex-start; padding:22px 14px 60px; position:relative; overflow-x:hidden;}
+  .app{width:100%; max-width:440px; position:relative; z-index:1;}
+  .brand{display:flex; align-items:center; gap:12px; padding:4px 4px 18px;}
+  .brand img{width:44px; height:44px; border-radius:12px; box-shadow:var(--shadow);}
+  .brand-text h1{font-size:17px; margin:0; font-weight:800; color:var(--indigo-900);}
+  .brand-text p{font-size:12px; margin:2px 0 0; color:var(--ink-600);}
+  .card{background:var(--card); border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:22px; margin-bottom:14px;}
+  .panel{display:none;} .panel.active{display:block;}
+  .status-banner{display:flex; align-items:center; gap:10px; border-radius:var(--radius-md); padding:12px 14px; font-size:13px; font-weight:600; margin-bottom:16px; line-height:1.4;}
+  .status-banner .dot{width:9px; height:9px; border-radius:50%; flex-shrink:0;}
+  .status-open{background:var(--mint-100); color:var(--mint-700);}
+  .status-open .dot{background:var(--mint-500);}
+  .status-closed{background:var(--red-100); color:var(--red-700);}
+  .status-closed .dot{background:var(--red-500);}
+  .status-offline{background:var(--amber-100); color:var(--amber-700);}
+  .status-offline .dot{background:var(--amber-500);}
+  .info-card{background:#f3f0ff; border-left:4px solid var(--violet-500); padding:12px 14px; border-radius:var(--radius-sm); font-size:12.5px; line-height:1.5; color:var(--indigo-900); margin-bottom:16px;}
+  .info-card b{color:var(--indigo-700);}
+  label{display:block; font-size:12.5px; font-weight:700; margin-bottom:6px; color:var(--ink-600);}
+  .field{margin-bottom:14px;}
+  input[type=text], input[type=tel]{width:100%; padding:13px 14px; border:1.6px solid var(--line); border-radius:var(--radius-sm); font-size:15px; outline:none; background:#fbfaff;}
+  input:focus{border-color:var(--violet-500); box-shadow:0 0 0 4px rgba(124,58,237,.13); background:#fff;}
+  button{border:none; border-radius:var(--radius-sm); font-size:14.5px; font-weight:700; cursor:pointer;}
+  .btn-primary{width:100%; padding:14px; background:linear-gradient(135deg, var(--indigo-700), var(--violet-500)); color:#fff; box-shadow:0 8px 18px rgba(124,58,237,.32);}
+  .btn-primary:disabled{opacity:.55; cursor:not-allowed; box-shadow:none;}
+  .btn-ghost{width:100%; padding:12px; background:transparent; color:var(--violet-500); font-size:13px; margin-top:10px;}
+  .btn-outline{width:100%; padding:12px; background:#fff; color:var(--indigo-700); border:1.6px solid var(--line); margin-top:8px;}
+  .btn-danger{width:100%; padding:12px; background:var(--red-500); color:#fff; margin-top:6px;}
+  .back-row{display:flex; align-items:center; gap:8px; margin-bottom:14px; cursor:pointer; color:var(--ink-600); font-size:13px; font-weight:600;}
+  h2{font-size:16px; margin:0 0 14px; color:var(--indigo-900);}
+  .ticket{background:#fff; border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow);}
+  .ticket-head{background:linear-gradient(135deg, var(--indigo-700), var(--violet-500)); color:#fff; padding:22px 20px; text-align:center;}
+  .ticket-head .check{width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; margin:0 auto 10px; font-size:26px;}
+  .ticket-head h2{color:#fff; margin:0; font-size:17px;}
+  .ticket-head p{margin:4px 0 0; font-size:12px; opacity:.85;}
+  .ticket-body{padding:20px;}
+  .perforation{height:0; border-top:2px dashed #d8d2f7; position:relative; margin:0 20px;}
+  .perforation::before,.perforation::after{content:""; position:absolute; top:-11px; width:22px; height:22px; background:var(--bg); border-radius:50%;}
+  .perforation::before{left:-31px;} .perforation::after{right:-31px;}
+  .ticket-row{display:flex; justify-content:space-between; padding:9px 0; font-size:13px; border-bottom:1px solid #f1eefd;}
+  .ticket-row:last-child{border-bottom:none;}
+  .ticket-row span{color:var(--ink-600);} .ticket-row strong{color:var(--ink-900); text-align:right;}
+  .tracking-box{text-align:center; margin:16px 0 4px; padding:14px; background:#f3f0ff; border-radius:var(--radius-md); border:1.5px dashed var(--violet-500);}
+  .tracking-box .label{font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--violet-500); font-weight:700;}
+  .tracking-box .code{font-size:22px; font-weight:800; color:var(--indigo-900); margin-top:4px;}
+  .slot-highlight{font-size:15px; color:var(--mint-700); font-weight:800;}
+  .warning-text{background:var(--amber-100); border:1px solid #fde3a4; color:var(--amber-700); font-size:11.5px; padding:10px 12px; border-radius:var(--radius-sm); margin:16px 0 0; line-height:1.5;}
+  .footer-link{text-align:center; margin-top:6px;}
+  .footer-link a{font-size:11px; color:var(--ink-400); text-decoration:none;}
+  .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--ink-900); color:#fff; padding:12px 18px; border-radius:12px; font-size:13px; max-width:90vw; box-shadow:0 10px 30px rgba(0,0,0,.25); z-index:50; opacity:0; transition:.25s; pointer-events:none;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+  .toast.error{background:var(--red-700);}
+  .existing-badge{display:inline-block; font-size:11px; font-weight:700; background:var(--amber-100); color:var(--amber-700); padding:4px 9px; border-radius:20px; margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="MedVisit">
+    <div class="brand-text"><h1>MedVisit</h1><p>Espace Représentants (mode à distance)</p></div>
+  </div>
+
+  <div id="viewHome" class="panel active">
+    <div class="card">
+      <div id="statusBanner" class="status-banner status-open"><span class="dot"></span><span id="statusText">Vérification des horaires…</span></div>
+      <div class="info-card">📌 <b>Règles de visite :</b> inscriptions acceptées uniquement de <b>10h00 à 14h00</b> · 1 représentant par créneau de <b>30 min</b> · <b id="maxPerDayLabel">6 visites max</b> par jour ouvrable · 1 seul représentant par laboratoire et par jour.</div>
+      <div class="field"><label>Votre code personnel</label><input type="text" id="repCode" placeholder="Ex : SANOFI-42" autocomplete="off" style="text-transform:uppercase;"></div>
+      <button class="btn-primary" id="btnBook">Confirmer ma visite</button>
+      <button class="btn-ghost" onclick="showView('viewRequest')">Je n'ai pas encore de code → Demander un accès</button>
+      <button class="btn-outline" onclick="showView('viewCancel')">Annuler un rendez-vous avec mon numéro de suivi</button>
+    </div>
+    <div class="footer-link"><a href="medecin.html">Accès Cabinet / Médecin</a></div>
+  </div>
+
+  <div id="viewRequest" class="panel">
+    <div class="card">
+      <div class="back-row" onclick="showView('viewHome')">← Retour</div>
+      <h2>Demande de code d'accès</h2>
+      <div class="info-card">📝 Renseignez vos informations professionnelles. Le cabinet validera votre profil et vous communiquera votre code personnel.</div>
+      <div class="field"><label>Nom</label><input type="text" id="reqNom" placeholder="Ex : Bennani"></div>
+      <div class="field"><label>Prénom</label><input type="text" id="reqPrenom" placeholder="Ex : Karim"></div>
+      <div class="field"><label>Laboratoire</label><input type="text" id="reqLab" placeholder="Ex : Sanofi"></div>
+      <div class="field"><label>Téléphone</label><input type="tel" id="reqTel" placeholder="Ex : 06 61 00 00 00"></div>
+      <button class="btn-primary" id="btnSubmitRequest">Envoyer ma demande au cabinet</button>
+    </div>
+  </div>
+
+  <div id="viewCancel" class="panel">
+    <div class="card">
+      <div class="back-row" onclick="showView('viewHome')">← Retour</div>
+      <h2>Annuler un rendez-vous</h2>
+      <div class="field"><label>Numéro de suivi</label><input type="text" id="cancelTracking" placeholder="Ex : RDV-483920" style="text-transform:uppercase;"></div>
+      <button class="btn-danger" id="btnCancel">Annuler ce rendez-vous</button>
+    </div>
+  </div>
+
+  <div id="viewTicket" class="panel">
+    <div class="ticket">
+      <div class="ticket-head"><div class="check">✓</div><h2 id="ticketTitle">Visite confirmée</h2><p>Merci, votre passage est enregistré</p></div>
+      <div class="ticket-body">
+        <span id="existingBadge" class="existing-badge" style="display:none;">Rendez-vous déjà existant</span>
+        <div class="ticket-row"><span>Laboratoire</span><strong id="tktLab"></strong></div>
+        <div class="ticket-row"><span>Date</span><strong id="tktDate"></strong></div>
+        <div class="ticket-row"><span>Créneau</span><strong class="slot-highlight" id="tktTime"></strong></div>
+        <div class="perforation"></div>
+        <div class="tracking-box"><div class="label">Numéro de suivi</div><div class="code" id="tktId"></div></div>
+        <div class="warning-text">⚠️ <b>Priorité médicale :</b> cet horaire est indicatif. En cas d'urgence au cabinet, le médecin peut décaler ou reporter votre passage — vous serez informé sur place.</div>
+        <button class="btn-outline" id="btnCloseTicket">Fermer et revenir à l'accueil</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js"></script>
+<script src="app-db-remote.js"></script>
+<script>
+  const DB = window.CabinetDB;
+
+  function showView(id){ document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+  function toast(msg, type){ const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(type?' '+type:''); clearTimeout(toast._timer); toast._timer=setTimeout(()=>{t.className='toast';},3600); }
+  function resetHome(){ document.getElementById('repCode').value=''; }
+
+  function updateStatusBanner(){
+    const st = DB.registrationWindowStatus();
+    const el = document.getElementById('statusBanner'); const txt = document.getElementById('statusText');
+    if (!navigator.onLine){ el.className='status-banner status-offline'; txt.textContent='Pas de connexion Internet — la réservation nécessite une connexion active.'; return; }
+    if (st.open){ el.className='status-banner status-open'; const remain=(14*60)-st.minutesNow, h=Math.floor(remain/60), m=remain%60; txt.textContent=`Inscriptions ouvertes — encore ${h}h${String(m).padStart(2,'0')} avant la fermeture (14h00)`; }
+    else { el.className='status-banner status-closed'; txt.textContent=`Inscriptions fermées. Ouvertes chaque jour ouvrable de ${st.startLabel} à ${st.endLabel}.`; }
+  }
+  updateStatusBanner(); setInterval(updateStatusBanner, 30000);
+  window.addEventListener('online', updateStatusBanner); window.addEventListener('offline', updateStatusBanner);
+
+  DB.getMaxPerDay().then(n => { document.getElementById('maxPerDayLabel').textContent = `${n} visite${n>1?'s':''} max`; }).catch(() => {});
+
+  async function handleBooking(){
+    const codeInput=document.getElementById('repCode'); const code=codeInput.value.trim().toUpperCase();
+    if (!code){ toast('Veuillez saisir votre code personnel.','error'); return; }
+    const st = DB.registrationWindowStatus();
+    if (!st.open){ alert(`❌ Inscriptions impossibles pour le moment.\n\nLes inscriptions se font uniquement de ${st.startLabel} à ${st.endLabel}, du lundi au vendredi (hors jours fériés).\nMerci de revenir pendant cette plage horaire.`); return; }
+    if (!navigator.onLine){ toast('Connexion Internet requise pour réserver.','error'); return; }
+
+    const btn=document.getElementById('btnBook'); btn.disabled=true; btn.textContent='Vérification…';
+    try {
+      const rep = await DB.findRepByCode(code);
+      if (!rep){ toast("Code invalide. Vérifiez ou demandez un accès.",'error'); return; }
+      if (rep.banned){ alert("🚫 Votre accès a été suspendu par le cabinet.\nVeuillez contacter directement le secrétariat pour plus d'informations."); return; }
+
+      const appt = await DB.bookAppointment({ repCode: rep.code });
+      const isExisting = (Date.now() - new Date(appt.createdAt).getTime()) > 5000;
+      renderTicket(appt, rep, isExisting);
+      showView('viewTicket');
+    } catch(err){ console.error(err); toast(err.message || "Une erreur est survenue.", 'error'); }
+    finally { btn.disabled=false; btn.textContent='Confirmer ma visite'; }
+  }
+
+  function renderTicket(appt, rep, isExisting){
+    document.getElementById('existingBadge').style.display = isExisting?'inline-block':'none';
+    document.getElementById('ticketTitle').textContent = isExisting?'Vous avez déjà un rendez-vous':'Visite confirmée';
+    document.getElementById('tktLab').textContent = rep.laboratoire;
+    document.getElementById('tktDate').textContent = DB.formatDateFR(appt.date);
+    const end = appt.slotMinutes + DB.SLOT_MINUTES;
+    document.getElementById('tktTime').textContent = `${DB.minutesToLabel(appt.slotMinutes)} — ${DB.minutesToLabel(end)}`;
+    document.getElementById('tktId').textContent = appt.tracking;
+  }
+
+  async function submitCodeRequest(){
+    const nom=document.getElementById('reqNom').value.trim(), prenom=document.getElementById('reqPrenom').value.trim(),
+          laboratoire=document.getElementById('reqLab').value.trim(), telephone=document.getElementById('reqTel').value.trim();
+    if (!nom || !prenom || !laboratoire || !telephone){ toast('Veuillez remplir tous les champs.','error'); return; }
+    try {
+      await DB.createCodeRequest({ nom, prenom, laboratoire, telephone });
+      ['reqNom','reqPrenom','reqLab','reqTel'].forEach(id => document.getElementById(id).value='');
+      alert("✅ Votre demande a bien été transmise au cabinet.\nVous recevrez votre code personnel après validation.");
+      showView('viewHome');
+    } catch(err){ toast(err.message, 'error'); }
+  }
+
+  async function handleCancel(){
+    const tracking=document.getElementById('cancelTracking').value.trim().toUpperCase();
+    if (!tracking){ toast('Veuillez saisir votre numéro de suivi.','error'); return; }
+    try { const appt=await DB.cancelAppointment(tracking); document.getElementById('cancelTracking').value='';
+      alert(`✅ Le rendez-vous ${appt.tracking} du ${DB.formatDateFR(appt.date)} a été annulé.`); showView('viewHome');
+    } catch(err){ toast(err.message,'error'); }
+  }
+
+  document.getElementById('btnBook').addEventListener('click', handleBooking);
+  document.getElementById('btnSubmitRequest').addEventListener('click', submitCodeRequest);
+  document.getElementById('btnCancel').addEventListener('click', handleCancel);
+  document.getElementById('btnCloseTicket').addEventListener('click', () => { showView('viewHome'); resetHome(); });
+  document.getElementById('repCode').addEventListener('keydown', e => { if (e.key==='Enter') handleBooking(); });
+
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+  }
+</script>
+</body>
+</html>
