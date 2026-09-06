@@ -85,6 +85,13 @@
     if (msg.includes("INTROUVABLE") && !msg.includes("DEMANDE")) throw new Error("Aucun rendez-vous trouvé avec ce numéro de suivi.");
     if (msg.includes("DEJA_ANNULE")) throw new Error("Ce rendez-vous est déjà annulé.");
     if (msg.includes("DEMANDE_INTROUVABLE")) throw new Error("Demande introuvable");
+    // Sentinelle volontairement laissée telle quelle (pas de message
+    // francisé) : l'écran de réservation la détecte pour proposer une
+    // popup "voir un autre jour ?" plutôt qu'un simple message d'erreur.
+    if (msg.includes("JOUR_COMPLET")) throw new Error("JOUR_COMPLET");
+    if (msg.includes("JOUR_FERME")) throw new Error("Ce jour n'est pas ouvert aux visites (week-end, jour férié, ou fermeture exceptionnelle).");
+    if (msg.includes("LABO_DEJA_PRIS")) throw new Error("Un représentant de votre laboratoire a déjà un rendez-vous ce jour-là.");
+    if (msg.includes("DATE_PASSEE")) throw new Error("Cette date est déjà passée.");
     // Toute autre défaillance (réseau, configuration, erreur serveur
     // imprévue) : message générique, jamais le détail technique brut.
     throw new Error("Connexion au serveur impossible. Vérifiez votre connexion Internet et réessayez.");
@@ -105,6 +112,40 @@
 
   async function bookAppointment({ repCode }) {
     const { data, error } = await safe(client.rpc("rep_book_appointment", { p_rep_code: repCode }));
+    if (error) throwIfError(error);
+    return mapAppointment(data);
+  }
+
+  // Renvoie le rendez-vous actif du représentant s'il existe déjà, sans
+  // rien réserver — utilisé pour afficher directement son ticket avant
+  // d'ouvrir le calendrier de choix de date. rep_get_existing_appointment
+  // renvoie un "row type" Postgres : quand rien ne correspond, il est
+  // sérialisé en {id: null, ...} plutôt qu'en JSON null (même subtilité
+  // que mapRep, voir plus haut).
+  async function findExistingAppointment(repCode) {
+    const { data, error } = await safe(client.rpc("rep_get_existing_appointment", { p_rep_code: repCode }));
+    if (error) throwIfError(error);
+    if (!data || data.id === null || data.id === undefined) return null;
+    return mapAppointment(data);
+  }
+
+  // Disponibilité jour par jour (pour le calendrier de choix de date) à
+  // partir de fromDateKey ("AAAA-MM-JJ"), sur `days` jours glissants.
+  async function getAvailability(fromDateKey, days) {
+    const { data, error } = await safe(client.rpc("rep_get_availability", { p_from: fromDateKey, p_days: days }));
+    if (error) throwIfError(error);
+    return (data || []).map((r) => ({
+      date: r.day,
+      isOpen: r.is_open,
+      maxPerDay: r.max_per_day,
+      taken: r.taken,
+      placesRestantes: r.places_restantes,
+    }));
+  }
+
+  // Réservation sur une date choisie par le représentant dans le calendrier.
+  async function bookAppointmentOnDate(repCode, dateKey) {
+    const { data, error } = await safe(client.rpc("rep_book_appointment_on_date", { p_rep_code: repCode, p_date: dateKey }));
     if (error) throwIfError(error);
     return mapAppointment(data);
   }
@@ -250,6 +291,7 @@
     SLOT_MINUTES, MAX_PER_DAY, DAY_SLOTS,
     toDateKey, fromDateKey, formatDateFR, minutesToLabel, registrationWindowStatus,
     findRepByCode, createCodeRequest, bookAppointment, cancelAppointment,
+    findExistingAppointment, getAvailability, bookAppointmentOnDate,
     listAllAppointments, // volontairement indisponible côté représentant (voir ci-dessus)
     // API additionnelle spécifique au mode distant, utilisée par medecin.html :
     adminLogin, adminLogout, adminSession, adminChangePassword,
