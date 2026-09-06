@@ -191,11 +191,13 @@
     if (error) throwIfError(error);
   }
 
-  async function getMaxPerDay() {
+  async function getMaxPerDay(dateKey) {
     // Passe par une fonction RPC (pas un accès direct à la table settings,
     // bloqué par RLS pour la clé anon) : lisible aussi bien côté
-    // représentant que côté Cabinet.
-    const { data, error } = await safe(client.rpc("rep_get_max_per_day"));
+    // représentant que côté Cabinet. Sans date, renvoie le quota du jour
+    // même (côté serveur : current_date) ; avec date, celui de ce jour
+    // précis (tient compte d'un éventuel réglage ponctuel, voir day_overrides).
+    const { data, error } = await safe(client.rpc("rep_get_max_per_day", dateKey ? { p_date: dateKey } : {}));
     if (error) throwIfError(error);
     const n = Number(data);
     return Number.isFinite(n) ? n : MAX_PER_DAY;
@@ -205,6 +207,34 @@
     const { error } = await safe(client.from("settings").upsert({ key: "max_per_day", value: clamped }));
     if (error) throwIfError(error);
     return clamped;
+  }
+
+  // ---------- Réglages ponctuels par jour précis (fermeture, quota) ----------
+  // Nécessite migration-002-day-overrides.sql sur le projet Supabase — tant
+  // qu'elle n'a pas été exécutée, ces appels échouent proprement (message
+  // générique via throwIfError), sans casser le reste de l'application.
+
+  async function getDayInfo(dateKey) {
+    const { data, error } = await safe(client.from("day_overrides").select("*").eq("date", dateKey).maybeSingle());
+    if (error) throwIfError(error);
+    const closed = !!(data && data.closed);
+    const customQuota = !!(data && data.max_per_day !== null && data.max_per_day !== undefined);
+    const [maxPerDay, appts] = await Promise.all([getMaxPerDay(dateKey), appointmentsForDay(dateKey)]);
+    return { closed, customQuota, maxPerDay, count: appts.length };
+  }
+  async function setDayClosed(dateKey, closed) {
+    const { error } = await safe(client.from("day_overrides").upsert({ date: dateKey, closed }));
+    if (error) throwIfError(error);
+  }
+  async function setDayMaxPerDay(dateKey, n) {
+    const clamped = Math.max(1, Math.min(DAY_SLOTS.length, Math.round(n)));
+    const { error } = await safe(client.from("day_overrides").upsert({ date: dateKey, max_per_day: clamped }));
+    if (error) throwIfError(error);
+    return clamped;
+  }
+  async function clearDayMaxPerDay(dateKey) {
+    const { error } = await safe(client.from("day_overrides").upsert({ date: dateKey, max_per_day: null }));
+    if (error) throwIfError(error);
   }
 
   global.CabinetDB = {
@@ -218,5 +248,6 @@
     listCodeRequests, approveCodeRequest, rejectCodeRequest,
     listRepresentatives, setRepBanned,
     getMobileHolidays, setMobileHolidays, getMaxPerDay, setMaxPerDay,
+    getDayInfo, setDayClosed, setDayMaxPerDay, clearDayMaxPerDay,
   };
 })(window);

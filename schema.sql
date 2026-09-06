@@ -65,6 +65,16 @@ insert into settings (key, value) values
   ('mobile_holidays', '["2026-03-19","2026-03-20","2026-05-26","2026-05-27","2026-06-16","2026-08-25"]'::jsonb),
   ('max_per_day', '6'::jsonb);
 
+-- Réglages ponctuels par jour précis (fermeture exceptionnelle, ou quota de
+-- représentants différent du réglage global) : une ligne par date concernée
+-- seulement, absence de ligne = comportement par défaut pour ce jour.
+create table day_overrides (
+  date date primary key,
+  closed boolean not null default false,
+  max_per_day int,
+  updated_at timestamptz not null default now()
+);
+
 -- ---------- Jours ouvrables (week-ends + jours fériés marocains) ----------
 
 create or replace function is_business_day(d date)
@@ -73,6 +83,7 @@ declare
   dow int;
   mmdd text;
   mobile jsonb;
+  v_closed boolean;
 begin
   dow := extract(dow from d); -- 0 = dimanche, 6 = samedi
   if dow = 0 or dow = 6 then return false; end if;
@@ -86,6 +97,13 @@ begin
   if mobile is not null and mobile ? to_char(d, 'YYYY-MM-DD') then
     return false;
   end if;
+
+  -- Fermeture exceptionnelle décidée par le Cabinet pour ce jour précis
+  -- (voir day_overrides / effective_max_per_day) : traitée comme un jour
+  -- férié, les représentants sont automatiquement redirigés au jour ouvrable
+  -- suivant.
+  select closed into v_closed from day_overrides where date = d;
+  if v_closed then return false; end if;
 
   return true;
 end;
@@ -105,6 +123,27 @@ begin
 end;
 $$;
 
+-- Quota effectif pour un jour donné : le réglage spécifique à ce jour
+-- (day_overrides.max_per_day) prime sur le réglage global (settings), pour
+-- permettre au Cabinet de réduire/augmenter ponctuellement le nombre de
+-- représentants un jour précis sans changer le réglage par défaut des
+-- autres jours.
+create or replace function effective_max_per_day(p_date date)
+returns int language plpgsql stable as $$
+declare
+  v_override int;
+  v_default int;
+begin
+  select max_per_day into v_override from day_overrides where date = p_date;
+  if v_override is not null then
+    return greatest(1, least(9, v_override));
+  end if;
+  select (value::text)::int into v_default from settings where key = 'max_per_day';
+  if v_default is null then v_default := 6; end if;
+  return greatest(1, least(9, v_default));
+end;
+$$;
+
 -- ---------- Fonctions représentant (exposées à la clé publique "anon") ----------
 
 create or replace function rep_find_by_code(p_code text)
@@ -120,18 +159,15 @@ language sql security definer set search_path = public as $$
   values (trim(p_nom), trim(p_prenom), trim(p_laboratoire), trim(p_telephone));
 $$;
 
--- Lecture publique du quota du jour (settings n'est pas lisible directement
--- par la clé anon ; ce petit RPC en expose juste la valeur, sans rien
--- d'autre du contenu de la table).
-create or replace function rep_get_max_per_day()
+-- Lecture publique du quota effectif d'un jour donné (par défaut aujourd'hui) :
+-- settings/day_overrides ne sont pas lisibles directement par la clé anon ;
+-- ce petit RPC en expose juste la valeur calculée, sans rien d'autre du
+-- contenu des tables.
+create or replace function rep_get_max_per_day(p_date date default current_date)
 returns int
 language plpgsql security definer set search_path = public stable as $$
-declare
-  v int;
 begin
-  select (value::text)::int into v from settings where key = 'max_per_day';
-  if v is null then v := 6; end if;
-  return greatest(1, least(9, v));
+  return effective_max_per_day(p_date);
 end;
 $$;
 
@@ -155,10 +191,6 @@ declare
   v_guard int := 0;
   v_max_per_day int;
 begin
-  select (value::text)::int into v_max_per_day from settings where key = 'max_per_day';
-  if v_max_per_day is null then v_max_per_day := 6; end if;
-  v_max_per_day := greatest(1, least(9, v_max_per_day)); -- 9 créneaux possibles max entre 10h00 et 14h30
-
   select * into v_rep from representatives where code = upper(trim(p_rep_code));
   if not found then
     raise exception 'CODE_INVALIDE';
@@ -186,6 +218,10 @@ begin
 
     -- Sérialise les réservations concurrentes pour cette même date.
     perform pg_advisory_xact_lock(hashtext(v_date::text));
+
+    -- Quota recalculé à chaque date candidate : un réglage ponctuel
+    -- (day_overrides) peut différer du réglage global d'un jour à l'autre.
+    v_max_per_day := effective_max_per_day(v_date);
 
     select count(*) into v_count from appointments where date = v_date and status = 'confirmed';
     select exists(
@@ -271,6 +307,7 @@ alter table representatives enable row level security;
 alter table code_requests enable row level security;
 alter table appointments enable row level security;
 alter table settings enable row level security;
+alter table day_overrides enable row level security;
 
 -- Par défaut (RLS activée, aucune policy pour "anon") : accès direct aux
 -- tables totalement bloqué pour la clé publique. Les représentants ne
@@ -283,6 +320,8 @@ create policy "cabinet full access appointments" on appointments
   for all to authenticated using (true) with check (true);
 create policy "cabinet full access settings" on settings
   for all to authenticated using (true) with check (true);
+create policy "cabinet full access day_overrides" on day_overrides
+  for all to authenticated using (true) with check (true);
 
 revoke all on all tables in schema public from anon;
 -- Postgres accorde EXECUTE à PUBLIC par défaut sur toute nouvelle fonction :
@@ -294,10 +333,10 @@ grant execute on function rep_find_by_code(text) to anon, authenticated;
 grant execute on function rep_create_code_request(text, text, text, text) to anon, authenticated;
 grant execute on function rep_book_appointment(text) to anon, authenticated;
 grant execute on function rep_cancel_appointment(text) to anon, authenticated;
-grant execute on function rep_get_max_per_day() to anon, authenticated;
+grant execute on function rep_get_max_per_day(date) to anon, authenticated;
 grant execute on function admin_approve_request(uuid) to authenticated;
 
-grant select, insert, update, delete on representatives, code_requests, appointments, settings to authenticated;
+grant select, insert, update, delete on representatives, code_requests, appointments, settings, day_overrides to authenticated;
 
 -- =========================================================
 -- Fin du script. Étape suivante : créez le compte du médecin dans

@@ -106,6 +106,23 @@
     <div class="section active" id="tab-planning">
       <div class="stat-grid" id="statGrid"></div>
       <div class="card">
+        <h2>Gérer une journée précise</h2>
+        <p class="hint">Fermez exceptionnellement un jour (aucune réservation possible, comme un jour férié ponctuel), ou changez le quota de représentants pour ce jour uniquement — sans toucher au réglage par défaut des autres jours.</p>
+        <div class="filters">
+          <input type="date" id="dayMgmtDate" onchange="loadDayMgmt()">
+        </div>
+        <div class="hint" id="dayMgmtStatus" style="margin:0 0 14px;"></div>
+        <div class="filters">
+          <button class="btn-sm btn-ban" id="btnCloseDay" style="width:auto; display:none;" onclick="closeDay()">🚫 Fermer ce jour</button>
+          <button class="btn-sm btn-unban" id="btnReopenDay" style="width:auto; display:none;" onclick="reopenDay()">✅ Rouvrir ce jour</button>
+        </div>
+        <div class="filters" style="align-items:center;">
+          <input type="number" id="dayMgmtQuota" min="1" max="9" step="1" style="max-width:90px;" disabled>
+          <button class="btn-primary btn-sm" style="width:auto;" id="btnApplyDayQuota" disabled onclick="applyDayQuota()">Appliquer ce quota pour ce jour</button>
+          <button class="btn-sm" style="width:auto;" id="btnResetDayQuota" disabled onclick="resetDayQuota()">Revenir au quota par défaut</button>
+        </div>
+      </div>
+      <div class="card">
         <h2>Rendez-vous</h2>
         <div class="filters">
           <select id="filtrePeriode" onchange="renderPlanning()">
@@ -245,6 +262,70 @@
     if (!confirm('Confirmer l\'annulation de ce rendez-vous ?')) return;
     await DB.cancelAppointmentById(id, 'Annulé par le cabinet (priorité médicale ou indisponibilité)');
     renderPlanning();
+  }
+
+  function currentDayMgmtDate(){ return document.getElementById('dayMgmtDate').value; }
+
+  async function loadDayMgmt(){
+    const date = currentDayMgmtDate();
+    const statusEl = document.getElementById('dayMgmtStatus');
+    const quotaInput = document.getElementById('dayMgmtQuota');
+    if (!date){
+      statusEl.textContent = '';
+      document.getElementById('btnCloseDay').style.display = 'none';
+      document.getElementById('btnReopenDay').style.display = 'none';
+      quotaInput.disabled = true;
+      document.getElementById('btnApplyDayQuota').disabled = true;
+      document.getElementById('btnResetDayQuota').disabled = true;
+      return;
+    }
+    statusEl.textContent = 'Chargement...';
+    try {
+      const info = await DB.getDayInfo(date);
+      const label = DB.fromDateKey(date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      statusEl.innerHTML = info.closed
+        ? `<strong>${label}</strong> — 🚫 Jour fermé (aucune réservation possible ce jour-là).`
+        : `<strong>${label}</strong> — ${info.count}/${info.maxPerDay} représentant(s) déjà confirmé(s)${info.customQuota ? ' (quota personnalisé pour ce jour)' : ' (quota par défaut)'}.`;
+      document.getElementById('btnCloseDay').style.display = info.closed ? 'none' : 'inline-block';
+      document.getElementById('btnReopenDay').style.display = info.closed ? 'inline-block' : 'none';
+      quotaInput.value = info.maxPerDay;
+      quotaInput.disabled = false;
+      document.getElementById('btnApplyDayQuota').disabled = false;
+      document.getElementById('btnResetDayQuota').disabled = !info.customQuota;
+    } catch (err) {
+      statusEl.textContent = 'Erreur : ' + err.message;
+    }
+  }
+
+  async function closeDay(){
+    const date = currentDayMgmtDate();
+    if (!date) return;
+    if (!confirm(`Fermer le ${date} ? Plus aucune réservation ne sera possible ce jour-là ; les représentants seront automatiquement redirigés vers le prochain jour disponible.`)) return;
+    try { await DB.setDayClosed(date, true); loadDayMgmt(); renderPlanning(); }
+    catch (err) { alert('Erreur : ' + err.message); }
+  }
+  async function reopenDay(){
+    const date = currentDayMgmtDate();
+    if (!date) return;
+    try { await DB.setDayClosed(date, false); loadDayMgmt(); renderPlanning(); }
+    catch (err) { alert('Erreur : ' + err.message); }
+  }
+  async function applyDayQuota(){
+    const date = currentDayMgmtDate();
+    const val = Number(document.getElementById('dayMgmtQuota').value);
+    if (!date) return;
+    if (!Number.isInteger(val) || val < 1 || val > 9){ alert('Veuillez saisir un nombre entier entre 1 et 9.'); return; }
+    try {
+      const saved = await DB.setDayMaxPerDay(date, val);
+      alert(`✅ Quota du ${date} mis à jour : ${saved} représentant(s) maximum ce jour-là.`);
+      loadDayMgmt(); renderPlanning();
+    } catch (err) { alert('Erreur : ' + err.message); }
+  }
+  async function resetDayQuota(){
+    const date = currentDayMgmtDate();
+    if (!date) return;
+    try { await DB.clearDayMaxPerDay(date); loadDayMgmt(); renderPlanning(); }
+    catch (err) { alert('Erreur : ' + err.message); }
   }
 
   async function renderDemandes(){
