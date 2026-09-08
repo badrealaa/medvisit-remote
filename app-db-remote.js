@@ -179,6 +179,16 @@
     const { error } = await safe(client.auth.updateUser({ password: newPassword }));
     if (error) throwIfError(error);
   }
+  async function adminRequestPasswordReset(email) {
+    const redirectTo = window.location.origin + window.location.pathname;
+    const { error } = await safe(client.auth.resetPasswordForEmail(email, { redirectTo }));
+    if (error) throw new Error(error.network ? "Connexion au serveur impossible. Vérifiez votre connexion Internet et réessayez." : "Impossible d'envoyer l'email de réinitialisation.");
+  }
+  function onPasswordRecovery(callback) {
+    client.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") callback();
+    });
+  }
 
   async function listAllAppointmentsAdmin() {
     const { data, error } = await safe(client.from("appointments").select("*").order("date").order("slot_minutes"));
@@ -295,6 +305,7 @@
     listAllAppointments, // volontairement indisponible côté représentant (voir ci-dessus)
     // API additionnelle spécifique au mode distant, utilisée par medecin.html :
     adminLogin, adminLogout, adminSession, adminChangePassword,
+    adminRequestPasswordReset, onPasswordRecovery,
     listAllAppointmentsAdmin, appointmentsForDay, cancelAppointmentById,
     listCodeRequests, approveCodeRequest, rejectCodeRequest,
     listRepresentatives, setRepBanned, createRepresentativeOnSite,

@@ -30,6 +30,8 @@
   button{border:none; border-radius:var(--radius-sm); font-weight:700; cursor:pointer; font-size:14px;}
   .btn-primary{width:100%; padding:13px; background:linear-gradient(135deg, var(--indigo-700), var(--violet-500)); color:#fff;}
   .err-msg{color:var(--red-700); font-size:12.5px; margin-top:8px; display:none;}
+  .ok-msg{color:var(--mint-700); font-size:12.5px; margin-top:8px; display:none;}
+  .link-forgot{margin-top:14px; font-size:12.5px; color:var(--violet-500); cursor:pointer; text-decoration:underline; display:inline-block;}
   #dashboard{display:none;}
   .topbar{background:linear-gradient(135deg, var(--indigo-900), var(--violet-500)); color:#fff; padding:18px 22px;}
   .topbar-inner{max-width:1000px; margin:0 auto; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;}
@@ -78,12 +80,35 @@
 <div id="loginScreen">
   <div class="login-card">
     <img class="logo" src="icons/icon-192.png" alt="MedVisit">
-    <h1>Espace Cabinet</h1>
-    <p>Accès réservé au médecin / secrétariat — compte créé dans Supabase (voir SETUP-SUPABASE.md)</p>
-    <input type="email" id="adminEmail" placeholder="Email" autocomplete="username">
-    <input type="password" id="adminPwd" placeholder="Mot de passe" autocomplete="current-password">
-    <button class="btn-primary" id="btnLogin">Se connecter</button>
-    <div class="err-msg" id="loginErr">Email ou mot de passe incorrect.</div>
+
+    <div id="loginForm">
+      <h1>Espace Cabinet</h1>
+      <p>Accès réservé au médecin / secrétariat — compte créé dans Supabase (voir SETUP-SUPABASE.md)</p>
+      <input type="email" id="adminEmail" placeholder="Email" autocomplete="username">
+      <input type="password" id="adminPwd" placeholder="Mot de passe" autocomplete="current-password">
+      <button class="btn-primary" id="btnLogin">Se connecter</button>
+      <div class="err-msg" id="loginErr">Email ou mot de passe incorrect.</div>
+      <div class="link-forgot" id="btnShowForgot">Mot de passe oublié ?</div>
+    </div>
+
+    <div id="forgotForm" style="display:none;">
+      <h1>Mot de passe oublié</h1>
+      <p>Indiquez l'email de votre compte Cabinet : vous recevrez un lien par email pour définir un nouveau mot de passe.</p>
+      <input type="email" id="forgotEmail" placeholder="Votre email" autocomplete="username">
+      <button class="btn-primary" id="btnSendReset">Envoyer le lien de réinitialisation</button>
+      <div class="err-msg" id="forgotErr"></div>
+      <div class="ok-msg" id="forgotOk">✅ Email envoyé ! Vérifiez votre boîte de réception (et vos spams), puis cliquez sur le lien reçu.</div>
+      <div class="link-forgot" id="btnBackToLogin">← Retour à la connexion</div>
+    </div>
+
+    <div id="recoveryForm" style="display:none;">
+      <h1>Nouveau mot de passe</h1>
+      <p>Vous avez cliqué sur le lien reçu par email. Définissez votre nouveau mot de passe pour continuer.</p>
+      <input type="password" id="recoveryPwd" placeholder="Nouveau mot de passe (min. 6 caractères)" autocomplete="new-password">
+      <input type="password" id="recoveryPwd2" placeholder="Confirmer le nouveau mot de passe" autocomplete="new-password">
+      <button class="btn-primary" id="btnRecoverySave">Enregistrer le mot de passe</button>
+      <div class="err-msg" id="recoveryErr"></div>
+    </div>
   </div>
 </div>
 
@@ -198,6 +223,30 @@
 <script>
   const DB = window.CabinetDB;
 
+  // Un lien de réinitialisation reçu par email ramène ici avec
+  // #access_token=...&type=recovery dans l'URL : on ne doit pas entrer
+  // directement dans le tableau de bord dans ce cas, mais attendre
+  // l'écran "Nouveau mot de passe" (voir onPasswordRecovery ci-dessous).
+  const isRecoveryLink = window.location.hash.includes('type=recovery');
+
+  function showLogin(){
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('recoveryForm').style.display = 'none';
+  }
+  function showForgot(){
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'block';
+    document.getElementById('recoveryForm').style.display = 'none';
+    document.getElementById('forgotErr').style.display = 'none';
+    document.getElementById('forgotOk').style.display = 'none';
+  }
+  function showRecovery(){
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('forgotForm').style.display = 'none';
+    document.getElementById('recoveryForm').style.display = 'block';
+  }
+
   async function tryLogin(){
     const email = document.getElementById('adminEmail').value.trim();
     const pwd = document.getElementById('adminPwd').value;
@@ -215,15 +264,60 @@
   document.getElementById('btnLogin').addEventListener('click', tryLogin);
   document.getElementById('adminPwd').addEventListener('keydown', e => { if (e.key==='Enter') tryLogin(); });
 
+  document.getElementById('btnShowForgot').addEventListener('click', showForgot);
+  document.getElementById('btnBackToLogin').addEventListener('click', showLogin);
+
+  document.getElementById('btnSendReset').addEventListener('click', async () => {
+    const email = document.getElementById('forgotEmail').value.trim();
+    const err = document.getElementById('forgotErr');
+    const ok = document.getElementById('forgotOk');
+    err.style.display = 'none';
+    ok.style.display = 'none';
+    if (!/^\S+@\S+\.\S+$/.test(email)){ err.textContent = 'Email invalide.'; err.style.display = 'block'; return; }
+    try {
+      await DB.adminRequestPasswordReset(email);
+      ok.style.display = 'block';
+    } catch(e){
+      err.textContent = e.message;
+      err.style.display = 'block';
+    }
+  });
+
+  document.getElementById('btnRecoverySave').addEventListener('click', async () => {
+    const pwd = document.getElementById('recoveryPwd').value;
+    const pwd2 = document.getElementById('recoveryPwd2').value;
+    const err = document.getElementById('recoveryErr');
+    err.style.display = 'none';
+    if (!pwd || pwd.length < 6){ err.textContent = 'Le mot de passe doit contenir au moins 6 caractères.'; err.style.display = 'block'; return; }
+    if (pwd !== pwd2){ err.textContent = 'Les mots de passe ne correspondent pas.'; err.style.display = 'block'; return; }
+    try {
+      await DB.adminChangePassword(pwd);
+      await DB.adminLogout();
+      document.getElementById('recoveryPwd').value = '';
+      document.getElementById('recoveryPwd2').value = '';
+      history.replaceState(null, '', window.location.pathname);
+      alert('✅ Mot de passe mis à jour. Connectez-vous avec votre nouveau mot de passe.');
+      showLogin();
+    } catch(e){
+      err.textContent = e.message || 'Erreur lors de la mise à jour.';
+      err.style.display = 'block';
+    }
+  });
+
+  DB.onPasswordRecovery(() => { showRecovery(); });
+
   document.getElementById('btnLogout').addEventListener('click', async () => {
     await DB.adminLogout();
     document.getElementById('dashboard').style.display='none';
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('adminPwd').value='';
+    showLogin();
   });
 
-  // Reprend la session si déjà connecté (évite de se reconnecter à chaque rechargement).
+  // Reprend la session si déjà connecté (évite de se reconnecter à chaque rechargement) —
+  // sauf si on arrive depuis un lien de réinitialisation (voir isRecoveryLink ci-dessus).
   (async () => {
+    if (isRecoveryLink) return;
     const session = await DB.adminSession();
     if (session){ document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboard').style.display='block'; refreshAll(); }
   })();
