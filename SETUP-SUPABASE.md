@@ -59,6 +59,20 @@ Résultat : seul le compte que vous avez créé manuellement à l'étape 3
 (et ceux que vous créerez vous-même de la même façon) peut se connecter.
 Personne ne peut s'auto-inscrire.
 
+## 4bis. Autoriser le lien de réinitialisation de mot de passe
+
+`medecin.html` propose un lien « Mot de passe oublié ? » qui envoie un
+email de réinitialisation via Supabase. Pour que le lien reçu par email
+ramène correctement vers l'app (au lieu d'être bloqué par Supabase) :
+
+1. Menu de gauche → **Authentication** → **URL Configuration**.
+2. Dans **Redirect URLs**, ajoutez l'URL exacte de votre `medecin.html`
+   en ligne (ex. `https://VOTRE-PROJET.github.io/medvisit-remote/medecin.html`).
+3. Enregistrez.
+
+Sans cette étape, cliquer sur le lien reçu par email peut renvoyer vers
+la mauvaise page ou afficher une erreur Supabase.
+
 ## 5. Récupérer les clés API
 
 1. Menu de gauche → **Project Settings** (icône ⚙️) → **API**.
