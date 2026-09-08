@@ -62,6 +62,7 @@
   .pill-active{background:var(--mint-100); color:var(--mint-700);}
   .btn-sm{padding:7px 12px; font-size:12px; border-radius:8px;}
   .btn-approve{background:var(--mint-500); color:#fff;}
+  .btn-whatsapp{background:#25D366; color:#fff;}
   .btn-reject{background:var(--red-100); color:var(--red-700);}
   .btn-ban{background:var(--red-500); color:#fff;}
   .btn-unban{background:var(--mint-500); color:#fff;}
@@ -167,6 +168,7 @@
     <div class="section" id="tab-demandes">
       <div class="card">
         <h2>Demandes de code en attente</h2>
+        <div class="hint" id="demandeResult" style="display:none; margin-bottom:14px;"></div>
         <div class="table-wrap"><table><thead><tr><th>Nom</th><th>Laboratoire</th><th>Téléphone</th><th></th></tr></thead><tbody id="tableDemandes"></tbody></table><div class="empty" id="emptyDemandes" style="display:none;">Aucune demande en attente.</div></div>
       </div>
       <div class="card">
@@ -448,7 +450,7 @@
     const tbody = document.getElementById('tableDemandes'); tbody.innerHTML = '';
     pending.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td class="row-actions"><button class="btn-sm btn-approve" onclick='approveReq("${r.id}", ${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.telephone)})'>Générer le code</button><button class="btn-sm btn-reject" onclick="rejectReq('${r.id}')">Rejeter</button></td>`;
+      tr.innerHTML = `<td>${fullName(r.prenom, r.nom)}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td class="row-actions"><button class="btn-sm btn-approve" onclick='approveReq("${r.id}", ${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.telephone)})'>Générer le code</button><button class="btn-sm btn-reject" onclick="rejectReq('${r.id}')">Rejeter</button></td>`;
       tbody.appendChild(tr);
     });
     document.getElementById('emptyDemandes').style.display = pending.length ? 'none' : 'block';
@@ -456,7 +458,7 @@
     const histBody = document.getElementById('tableDemandesHist'); histBody.innerHTML = '';
     history.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.status === 'approved' ? '<span class="pill pill-confirmed">Approuvé</span>' : '<span class="pill pill-cancelled">Rejeté</span>'}</td><td>${r.generatedCode || '—'}</td>`;
+      tr.innerHTML = `<td>${fullName(r.prenom, r.nom)}</td><td>${r.laboratoire}</td><td>${r.status === 'approved' ? '<span class="pill pill-confirmed">Approuvé</span>' : '<span class="pill pill-cancelled">Rejeté</span>'}</td><td>${r.generatedCode || '—'}</td>`;
       histBody.appendChild(tr);
     });
     document.getElementById('emptyHist').style.display = history.length ? 'none' : 'block';
@@ -465,11 +467,11 @@
   async function approveReq(id, prenom, nom, telephone){
     const code = await DB.approveCodeRequest(id);
     renderDemandes(); renderReps();
-    if (confirm(`✅ Code généré : ${code}\n\nL'envoyer tout de suite par WhatsApp à ${prenom} ${nom} ?`)){
-      sendCodeWhatsApp(prenom, nom, code, telephone);
-    }
+    showCodeResult('demandeResult', prenom, nom, code, telephone);
   }
   async function rejectReq(id){ if (!confirm('Rejeter cette demande ?')) return; await DB.rejectCodeRequest(id); renderDemandes(); }
+
+  function fullName(prenom, nom){ return [prenom, nom].map(s => (s || '').trim()).filter(Boolean).join(' '); }
 
   function toWhatsAppNumber(phone){
     let digits = (phone || '').replace(/\D/g, '');
@@ -479,8 +481,22 @@
   }
   function sendCodeWhatsApp(prenom, nom, code, telephone){
     const num = toWhatsAppNumber(telephone);
-    const msg = `Bonjour ${prenom} ${nom}, voici votre code personnel MedVisit pour réserver vos visites au cabinet : ${code}. Merci.`;
+    const msg = `Bonjour ${fullName(prenom, nom)}, voici votre code personnel MedVisit pour réserver vos visites au cabinet : ${code}. Merci.`;
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
+  }
+
+  // Affiche le code généré avec un bouton WhatsApp direct (un seul clic,
+  // pas de popup de confirmation) dans le conteneur `resultElId`.
+  function showCodeResult(resultElId, prenom, nom, code, telephone){
+    const el = document.getElementById(resultElId);
+    el.style.display = 'block';
+    el.innerHTML = `✅ Code généré pour ${fullName(prenom, nom)} : <strong>${code}</strong> — `;
+    const btn = document.createElement('button');
+    btn.className = 'btn-sm btn-whatsapp';
+    btn.style.width = 'auto';
+    btn.textContent = '📱 Envoyer par WhatsApp';
+    btn.onclick = () => sendCodeWhatsApp(prenom, nom, code, telephone);
+    el.appendChild(btn);
   }
 
   async function renderReps(){
@@ -488,7 +504,7 @@
     const tbody = document.getElementById('tableReps'); tbody.innerHTML = '';
     reps.forEach(r => {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td><strong>${r.code}</strong></td><td>${r.prenom} ${r.nom}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td><span class="pill ${r.banned ? 'pill-banned' : 'pill-active'}">${r.banned ? 'Banni' : 'Actif'}</span></td><td class="row-actions"><button class="btn-sm btn-approve" onclick='sendCodeWhatsApp(${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.code)}, ${JSON.stringify(r.telephone)})'>Envoyer le code</button>${r.banned ? `<button class="btn-sm btn-unban" onclick="toggleBan('${r.id}', false)">Réactiver</button>` : `<button class="btn-sm btn-ban" onclick="toggleBan('${r.id}', true)">Bannir</button>`}</td>`;
+      tr.innerHTML = `<td><strong>${r.code}</strong></td><td>${fullName(r.prenom, r.nom)}</td><td>${r.laboratoire}</td><td>${r.telephone}</td><td><span class="pill ${r.banned ? 'pill-banned' : 'pill-active'}">${r.banned ? 'Banni' : 'Actif'}</span></td><td class="row-actions"><button class="btn-sm btn-whatsapp" onclick='sendCodeWhatsApp(${JSON.stringify(r.prenom)}, ${JSON.stringify(r.nom)}, ${JSON.stringify(r.code)}, ${JSON.stringify(r.telephone)})'>📱 Envoyer le code</button>${r.banned ? `<button class="btn-sm btn-unban" onclick="toggleBan('${r.id}', false)">Réactiver</button>` : `<button class="btn-sm btn-ban" onclick="toggleBan('${r.id}', true)">Bannir</button>`}</td>`;
       tbody.appendChild(tr);
     });
     document.getElementById('emptyReps').style.display = reps.length ? 'none' : 'block';
@@ -507,16 +523,15 @@
     if (!nom || !prenom || !laboratoire || !telephone){ alert('Veuillez remplir tous les champs.'); return; }
     try {
       const code = await DB.createRepresentativeOnSite({ nom, prenom, laboratoire, telephone });
-      resultEl.innerHTML = `✅ Code généré : <strong>${code}</strong>`;
       document.getElementById('newRepNom').value = '';
       document.getElementById('newRepPrenom').value = '';
       document.getElementById('newRepLabo').value = '';
       document.getElementById('newRepTel').value = '';
       renderReps();
-      if (confirm(`Code généré : ${code}\n\nL'envoyer aussi par WhatsApp à ${prenom} ${nom} ?`)){
-        sendCodeWhatsApp(prenom, nom, code, telephone);
-      }
+      resultEl.style.display = 'block';
+      showCodeResult('newRepResult', prenom, nom, code, telephone);
     } catch (err) {
+      resultEl.style.display = 'block';
       resultEl.textContent = 'Erreur : ' + err.message;
     }
   }
