@@ -304,6 +304,11 @@
     }
   });
 
+  // Filet de sécurité : sur certains navigateurs, l'événement PASSWORD_RECOVERY
+  // de Supabase peut être émis avant que ce script ait eu la chance de s'y
+  // abonner (et serait alors perdu). On affiche donc l'écran directement dès
+  // que l'URL contient un lien de récupération, sans dépendre de l'événement.
+  if (isRecoveryLink) showRecovery();
   DB.onPasswordRecovery(() => { showRecovery(); });
 
   document.getElementById('btnLogout').addEventListener('click', async () => {
