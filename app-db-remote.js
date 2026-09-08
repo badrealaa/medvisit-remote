@@ -182,7 +182,10 @@
   async function adminRequestPasswordReset(email) {
     const redirectTo = window.location.origin + window.location.pathname;
     const { error } = await safe(client.auth.resetPasswordForEmail(email, { redirectTo }));
-    if (error) throw new Error(error.network ? "Connexion au serveur impossible. Vérifiez votre connexion Internet et réessayez." : "Impossible d'envoyer l'email de réinitialisation.");
+    if (error) {
+      if (error.network) throw new Error("Connexion au serveur impossible. Vérifiez votre connexion Internet et réessayez.");
+      throw new Error(error.message || "Impossible d'envoyer l'email de réinitialisation.");
+    }
   }
   function onPasswordRecovery(callback) {
     client.auth.onAuthStateChange((event) => {
