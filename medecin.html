@@ -149,6 +149,24 @@
         </div>
       </div>
       <div class="card">
+        <h2>Gérer une période (vacances, congés...)</h2>
+        <p class="hint">Fermez plusieurs jours d'affilée en une seule fois (congés, absence prolongée), ou appliquez un quota particulier sur toute la période — 60 jours maximum par opération.</p>
+        <div class="filters">
+          <input type="date" id="periodStart">
+          <input type="date" id="periodEnd">
+        </div>
+        <div class="hint" id="periodStatus" style="margin:0 0 14px;"></div>
+        <div class="filters">
+          <button class="btn-sm btn-ban" style="width:auto;" onclick="closePeriod()">🚫 Fermer cette période</button>
+          <button class="btn-sm btn-unban" style="width:auto;" onclick="reopenPeriod()">✅ Rouvrir cette période</button>
+        </div>
+        <div class="filters" style="align-items:center;">
+          <input type="number" id="periodQuota" min="1" max="9" step="1" style="max-width:90px;">
+          <button class="btn-primary btn-sm" style="width:auto;" onclick="applyPeriodQuota()">Appliquer ce quota sur la période</button>
+          <button class="btn-sm" style="width:auto;" onclick="resetPeriodQuota()">Revenir au quota par défaut sur la période</button>
+        </div>
+      </div>
+      <div class="card">
         <h2>Rendez-vous</h2>
         <div class="filters">
           <select id="filtrePeriode" onchange="renderPlanning()">
@@ -439,6 +457,72 @@
     if (!date) return;
     try { await DB.clearDayMaxPerDay(date); loadDayMgmt(); renderPlanning(); }
     catch (err) { alert('Erreur : ' + err.message); }
+  }
+
+  const PERIOD_MAX_DAYS = 60;
+  function periodDateRange(){
+    const start = document.getElementById('periodStart').value;
+    const end = document.getElementById('periodEnd').value;
+    const statusEl = document.getElementById('periodStatus');
+    if (!start || !end){ statusEl.textContent = 'Choisissez une date de début et une date de fin.'; return null; }
+    if (end < start){ statusEl.textContent = 'La date de fin doit être après la date de début.'; return null; }
+    const dates = [];
+    let d = DB.fromDateKey(start);
+    const endD = DB.fromDateKey(end);
+    while (d <= endD){
+      dates.push(DB.toDateKey(d));
+      d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+      if (dates.length > PERIOD_MAX_DAYS){ statusEl.textContent = `Période trop longue (${PERIOD_MAX_DAYS} jours maximum par opération).`; return null; }
+    }
+    statusEl.textContent = '';
+    return dates;
+  }
+  async function closePeriod(){
+    const dates = periodDateRange();
+    if (!dates) return;
+    if (!confirm(`Fermer ${dates.length} jour(s), du ${dates[0]} au ${dates[dates.length - 1]} ? Plus aucune réservation ne sera possible sur cette période.`)) return;
+    const statusEl = document.getElementById('periodStatus');
+    statusEl.textContent = 'Application en cours...';
+    try {
+      await Promise.all(dates.map(d => DB.setDayClosed(d, true)));
+      statusEl.textContent = `✅ ${dates.length} jour(s) fermé(s).`;
+      renderPlanning(); loadDayMgmt();
+    } catch (err) { statusEl.textContent = 'Erreur : ' + err.message; }
+  }
+  async function reopenPeriod(){
+    const dates = periodDateRange();
+    if (!dates) return;
+    const statusEl = document.getElementById('periodStatus');
+    statusEl.textContent = 'Application en cours...';
+    try {
+      await Promise.all(dates.map(d => DB.setDayClosed(d, false)));
+      statusEl.textContent = `✅ ${dates.length} jour(s) rouvert(s).`;
+      renderPlanning(); loadDayMgmt();
+    } catch (err) { statusEl.textContent = 'Erreur : ' + err.message; }
+  }
+  async function applyPeriodQuota(){
+    const dates = periodDateRange();
+    if (!dates) return;
+    const val = Number(document.getElementById('periodQuota').value);
+    if (!Number.isInteger(val) || val < 1 || val > 9){ alert('Veuillez saisir un nombre entier entre 1 et 9.'); return; }
+    const statusEl = document.getElementById('periodStatus');
+    statusEl.textContent = 'Application en cours...';
+    try {
+      await Promise.all(dates.map(d => DB.setDayMaxPerDay(d, val)));
+      statusEl.textContent = `✅ Quota de ${val} appliqué à ${dates.length} jour(s).`;
+      renderPlanning(); loadDayMgmt();
+    } catch (err) { statusEl.textContent = 'Erreur : ' + err.message; }
+  }
+  async function resetPeriodQuota(){
+    const dates = periodDateRange();
+    if (!dates) return;
+    const statusEl = document.getElementById('periodStatus');
+    statusEl.textContent = 'Application en cours...';
+    try {
+      await Promise.all(dates.map(d => DB.clearDayMaxPerDay(d)));
+      statusEl.textContent = `✅ Quota par défaut restauré pour ${dates.length} jour(s).`;
+      renderPlanning(); loadDayMgmt();
+    } catch (err) { statusEl.textContent = 'Erreur : ' + err.message; }
   }
 
   async function renderDemandes(){
