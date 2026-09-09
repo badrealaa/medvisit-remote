@@ -1,4 +1,4 @@
-const CACHE_NAME = "medvisit-remote-cache-v2";
+const CACHE_NAME = "medvisit-remote-cache-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -30,7 +30,11 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.origin !== self.location.origin) return; // ne pas intercepter Supabase/CDN
   event.respondWith(
-    fetch(event.request)
+    // "no-store" court-circuite aussi le cache HTTP du navigateur (pas
+    // seulement le Cache Storage ci-dessus) : GitHub Pages renvoie
+    // "cache-control: max-age=600", donc sans ça une mise à jour pouvait
+    // rester invisible jusqu'à 10 minutes après un push.
+    fetch(event.request, { cache: "no-store" })
       .then((response) => {
         if (response && response.status === 200) {
           const clone = response.clone();
