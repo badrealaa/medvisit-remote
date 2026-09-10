@@ -28,10 +28,11 @@
   function formatDateFR(key) { return fromDateKey(key).toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" }); }
   function minutesToLabel(min) { return `${pad2(Math.floor(min / 60))}h${pad2(min % 60)}`; }
 
+  // Les inscriptions/réservations sont ouvertes en permanence (7j/7, 24h/24) :
+  // seul le quota journalier (settings.max_per_day / day_overrides) limite le
+  // nombre de représentants par jour, appliqué côté serveur.
   function registrationWindowStatus(now = new Date()) {
-    const minutesNow = now.getHours() * 60 + now.getMinutes();
-    const open = minutesNow >= 600 && minutesNow < 840;
-    return { open, startLabel: "10h00", endLabel: "14h00", minutesNow };
+    return { open: true, minutesNow: now.getHours() * 60 + now.getMinutes() };
   }
 
   function mapAppointment(row) {

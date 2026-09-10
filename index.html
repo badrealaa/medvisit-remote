@@ -118,8 +118,8 @@
 
   <div id="viewHome" class="panel active">
     <div class="card">
-      <div id="statusBanner" class="status-banner status-open"><span class="dot"></span><span id="statusText">Vérification des horaires…</span></div>
-      <div class="info-card">📌 <b>Règles de visite :</b> inscriptions acceptées uniquement de <b>10h00 à 14h00</b> · <b id="maxPerDayLabel">6 visites max</b> par jour ouvrable · 1 seul représentant par laboratoire et par jour.</div>
+      <div id="statusBanner" class="status-banner status-open"><span class="dot"></span><span id="statusText">Vérification…</span></div>
+      <div class="info-card">📌 <b>Règles de visite :</b> inscriptions ouvertes <b>7j/7, 24h/24</b> · <b id="maxPerDayLabel">6 visites max</b> par jour ouvrable · 1 seul représentant par laboratoire et par jour.</div>
       <div class="field"><label>Votre code personnel</label><input type="text" id="repCode" placeholder="Ex : SANOFI-42" autocomplete="off" style="text-transform:uppercase;"></div>
       <button class="btn-primary" id="btnBook">📅 Choisir ma date de visite</button>
       <button class="btn-ghost" onclick="showView('viewRequest')">Je n'ai pas encore de code → Demander un accès</button>
@@ -203,11 +203,9 @@
   function resetHome(){ document.getElementById('repCode').value=''; }
 
   function updateStatusBanner(){
-    const st = DB.registrationWindowStatus();
     const el = document.getElementById('statusBanner'); const txt = document.getElementById('statusText');
     if (!navigator.onLine){ el.className='status-banner status-offline'; txt.textContent='Pas de connexion Internet — la réservation nécessite une connexion active.'; return; }
-    if (st.open){ el.className='status-banner status-open'; const remain=(14*60)-st.minutesNow, h=Math.floor(remain/60), m=remain%60; txt.textContent=`Inscriptions ouvertes — encore ${h}h${String(m).padStart(2,'0')} avant la fermeture (14h00)`; }
-    else { el.className='status-banner status-closed'; txt.textContent=`Inscriptions fermées. Ouvertes chaque jour ouvrable de ${st.startLabel} à ${st.endLabel}.`; }
+    el.className='status-banner status-open'; txt.textContent='Inscriptions ouvertes 7j/7, 24h/24 — selon les places disponibles chaque jour.';
   }
   updateStatusBanner(); setInterval(updateStatusBanner, 30000);
   window.addEventListener('online', updateStatusBanner); window.addEventListener('offline', updateStatusBanner);
@@ -217,8 +215,6 @@
   async function handleBooking(){
     const codeInput=document.getElementById('repCode'); const code=codeInput.value.trim().toUpperCase();
     if (!code){ toast('Veuillez saisir votre code personnel.','error'); return; }
-    const st = DB.registrationWindowStatus();
-    if (!st.open){ alert(`❌ Inscriptions impossibles pour le moment.\n\nLes inscriptions se font uniquement de ${st.startLabel} à ${st.endLabel}, du lundi au vendredi (hors jours fériés).\nMerci de revenir pendant cette plage horaire.`); return; }
     if (!navigator.onLine){ toast('Connexion Internet requise pour réserver.','error'); return; }
 
     const btn=document.getElementById('btnBook'); btn.disabled=true; btn.textContent='Vérification…';
