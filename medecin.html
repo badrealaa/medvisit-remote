@@ -347,6 +347,20 @@
     if (session){ document.getElementById('loginScreen').style.display='none'; document.getElementById('dashboard').style.display='block'; refreshAll(); }
   })();
 
+  // Les dates de la période (vacances/congés) sont mémorisées localement pour ne pas
+  // disparaître à la fermeture/réouverture de l'appli (ce ne sont que des champs de saisie,
+  // rien à voir avec l'état "fermé" des jours, qui lui est bien enregistré côté serveur).
+  const PERIOD_STORAGE = { start: 'medvisit_periodStart', end: 'medvisit_periodEnd' };
+  function restorePeriodInputs(){
+    const s = localStorage.getItem(PERIOD_STORAGE.start);
+    const e = localStorage.getItem(PERIOD_STORAGE.end);
+    if (s) document.getElementById('periodStart').value = s;
+    if (e) document.getElementById('periodEnd').value = e;
+  }
+  document.getElementById('periodStart').addEventListener('change', () => localStorage.setItem(PERIOD_STORAGE.start, document.getElementById('periodStart').value));
+  document.getElementById('periodEnd').addEventListener('change', () => localStorage.setItem(PERIOD_STORAGE.end, document.getElementById('periodEnd').value));
+  restorePeriodInputs();
+
   function switchTab(name){
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
     document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
